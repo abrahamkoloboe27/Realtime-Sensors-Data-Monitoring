@@ -33,7 +33,7 @@ def create_sensor_table():
             cursor = conn.cursor()
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS sensors(
-                    sensor_id VARCHAR(40),
+                    sensor_id VARCHAR(40) UNIQUE,
                     timestamp TIMESTAMP,
                     temperature NUMERIC(5,2),
                     humidity NUMERIC(5,2),

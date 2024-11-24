@@ -2,7 +2,6 @@ import random
 import json
 from datetime import datetime, timedelta
 from airflow.operators.empty import EmptyOperator
-from airflow.operators.python import PythonOperator
 from airflow.decorators import (
     dag
 )
@@ -10,8 +9,7 @@ from airflow.providers.apache.kafka.operators.produce import ProduceToTopicOpera
 from airflow.providers.apache.kafka.operators.consume import ConsumeFromTopicOperator
 from dotenv import load_dotenv
 import os
-import psycopg2
-from psycopg2 import sql
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
 load_dotenv()  # take environment variables from .env.
 
@@ -40,24 +38,6 @@ def generate_data(num_rows:int) :
                 }
             )
         )
-def consume_data(message):
-    key = json.loads(message.key())
-    content = json.loads(message.value())
-    print(f"key = {key}, value = {content}")
-    try:
-        conn = psycopg2.connect(host=host, port=port, dbname=dbname, user=user, password=password)
-        query = sql.SQL("""
-                INSERT INTO sensors(sensor_id,timestamp,temperature,humidity,pressure,location)
-                VALUES(%(sensor_id)s, %(timestamp)s, %(temperature)s, %(humidity)s, %(pressure)s,%(location)s);
-        """)
-        with conn.cursor() as cursor:
-            cursor.execute(query,content)
-            conn.commit()
-            print(f"Sensor data data inserted successfully for {message.key()}")
-    except Exception as e:
-        print(f"An error occured while consuming {e}")
-        conn.rollback()
-        conn.close()
 
         
 @dag(
@@ -84,12 +64,10 @@ def produce_sensor_data():
         producer_function_args=[100]
     )
 
-    consume_sensor_data = ConsumeFromTopicOperator(
-        task_id='consume_data',
-        topics=[topic_name],
-        poll_timeout=20,
-        apply_function=consume_data
-    )
-    start >> produce_data >> consume_sensor_data >> end
+    consume_data = TriggerDagRunOperator(
+        task_id='consume_sensor_data',
+        trigger_dag_id='consume_data_from_kafka'
+        )
+    start >> produce_data >> end >> consume_data
 
 produce_sensor_data()
