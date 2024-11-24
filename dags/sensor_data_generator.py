@@ -43,7 +43,7 @@ def generate_data(num_rows:int) :
 @dag(
     dag_id='stream_data_to_kafka',
     start_date= datetime(2024,11,24),
-    schedule_interval=timedelta(days=1),
+    schedule_interval=timedelta(minutes=10),
     description='Stream data to Kafka',
     tags= ['kafka','sensor'],
     default_args={
